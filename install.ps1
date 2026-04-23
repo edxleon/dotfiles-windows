@@ -91,6 +91,9 @@ if (Get-Command nvm -ErrorAction SilentlyContinue) {
     if (Get-Command npm -ErrorAction SilentlyContinue) {
         npm install -g pnpm
         Write-Ok "Node LTS + pnpm installed"
+    } else {
+        Write-Host "    [!!] pnpm not installed automatically — run manually:" -ForegroundColor Yellow
+        Write-Host "         nvm use lts && npm install -g pnpm" -ForegroundColor Yellow
     }
 }
 
