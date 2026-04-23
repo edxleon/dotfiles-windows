@@ -30,6 +30,15 @@ If WSL (Ubuntu) is installed, `setup-wsl.sh` runs automatically inside it.
 | posh-git | Git status in prompt |
 | CompletionPredictor | Smarter tab completions |
 
+**WSL only (via `setup-wsl.sh`):**
+
+| Tool | Purpose |
+|------|---------|
+| tmux | Terminal multiplexer — Tokyo Night theme, all original shortcuts |
+| tpm | tmux plugin manager + yank, resurrect, continuum |
+| vim | Editor — Tokyo Night theme, all original shortcuts |
+| vim-plug | Plugin manager + full plugin suite |
+
 ## Options
 
 ```powershell

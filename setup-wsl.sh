@@ -6,10 +6,12 @@ step() { echo -e "\n\033[36m==> $1\033[0m"; }
 ok()   { echo -e "    \033[32m[OK]\033[0m $1"; }
 skip() { echo -e "    \033[90m[--]\033[0m $1"; }
 
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # ── System update ─────────────────────────────────────────────────────────────
 step "System packages"
 sudo apt update -qq && sudo apt upgrade -y -qq
-sudo apt install -y -qq curl wget git unzip build-essential zsh
+sudo apt install -y -qq curl wget git unzip build-essential zsh tmux vim python3-dev cmake
 
 # ── Zsh + Oh My Zsh ───────────────────────────────────────────────────────────
 step "Zsh + Oh My Zsh"
@@ -245,6 +247,43 @@ export EDITOR='code'
 ZSHRC_CONTENT
 
 ok ".zshrc written"
+
+# ── tmux: tpm + config ────────────────────────────────────────────────────────
+step "tmux (tpm + config)"
+if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
+    git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+    ok "tpm installed"
+else
+    skip "tpm already installed"
+fi
+ln -sf "$DOTFILES_DIR/configs/tmux.conf" "$HOME/.tmux.conf"
+ok "~/.tmux.conf -> repo"
+# Install plugins headlessly
+if command -v tmux &>/dev/null && [ -f "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
+    "$HOME/.tmux/plugins/tpm/bin/install_plugins" &>/dev/null
+    ok "tmux plugins installed"
+fi
+
+# ── vim: vim-plug + config ────────────────────────────────────────────────────
+step "vim (vim-plug + config)"
+if [ ! -f "$HOME/.vim/autoload/plug.vim" ]; then
+    curl -fsSLo "$HOME/.vim/autoload/plug.vim" --create-dirs \
+        https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+    ok "vim-plug installed"
+else
+    skip "vim-plug already installed"
+fi
+ln -sf "$DOTFILES_DIR/configs/vimrc" "$HOME/.vimrc"
+ok "~/.vimrc -> repo"
+vim +PlugInstall +qall &>/dev/null || true
+ok "vim plugins installed"
+
+# YouCompleteMe requires compilation
+YCM_DIR="$HOME/.vim/plugged/YouCompleteMe"
+if [ -d "$YCM_DIR" ] && [ ! -f "$YCM_DIR/third_party/ycmd/ycm_core.so" ]; then
+    python3 "$YCM_DIR/install.py" &>/dev/null && ok "YouCompleteMe compiled" \
+        || echo "    [!!] YCM build failed — run manually: python3 ~/.vim/plugged/YouCompleteMe/install.py"
+fi
 
 # ── Change default shell to zsh ───────────────────────────────────────────────
 step "Default shell"

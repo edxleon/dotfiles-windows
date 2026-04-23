@@ -1,0 +1,106 @@
+" ── General ──────────────────────────────────────────────────────────────────
+set history=1000
+set number
+set ruler
+set showcmd
+set wildmenu
+set encoding=utf-8
+set laststatus=2
+syntax enable
+
+" ── Search ────────────────────────────────────────────────────────────────────
+set hlsearch
+set incsearch
+set ignorecase
+set smartcase
+nnoremap <silent> <Esc><Esc> :nohlsearch<CR>
+
+" ── Indentation ───────────────────────────────────────────────────────────────
+set expandtab
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+set smartindent
+set autoindent
+set wrap
+set linebreak
+set scrolloff=5
+
+" ── Leader ────────────────────────────────────────────────────────────────────
+let mapleader = ","
+nnoremap <leader>w :w!<CR>
+
+" ── Tmux window resizing (C-a/s/w/d) ─────────────────────────────────────────
+nnoremap <silent> <C-a> :TmuxResizeLeft<CR>
+nnoremap <silent> <C-s> :TmuxResizeDown<CR>
+nnoremap <silent> <C-d> :TmuxResizeRight<CR>
+
+" ── Plugins (vim-plug) ────────────────────────────────────────────────────────
+call plug#begin('~/.vim/plugged')
+
+" Navigation
+Plug 'preservim/nerdtree'
+Plug 'christoomey/vim-tmux-navigator'
+Plug 'easymotion/vim-easymotion'
+
+" Git
+Plug 'tpope/vim-fugitive'
+
+" UI
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+Plug 'Yggdroot/indentLine'
+
+" Syntax / Linting
+Plug 'vim-syntastic/syntastic'
+Plug 'chr4/nginx.vim'
+Plug 'ekalinin/Dockerfile.vim'
+Plug 'elzr/vim-json'
+
+" Editing
+Plug 'tpope/vim-surround'
+Plug 'SirVer/ultisnips'
+Plug 'ycm-core/YouCompleteMe', { 'do': './install.py' }
+
+" Python
+Plug 'nvie/vim-flake8'
+Plug 'tell-k/vim-autopep8'
+
+" Tokyo Night
+Plug 'ghifarit53/tokyonight-vim'
+
+call plug#end()
+
+" ── Tokyo Night colorscheme ───────────────────────────────────────────────────
+set termguicolors
+let g:tokyonight_style = 'night'
+let g:tokyonight_enable_italic = 1
+colorscheme tokyonight
+
+" ── vim-airline ───────────────────────────────────────────────────────────────
+let g:airline_theme = 'tokyonight'
+let g:airline_powerline_fonts = 1
+let g:airline#extensions#tabline#enabled = 1
+
+" ── NERDTree ──────────────────────────────────────────────────────────────────
+nnoremap <leader>n :NERDTreeToggle<CR>
+let NERDTreeShowHidden = 1
+" Close vim if NERDTree is the only window left
+autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 &&
+    \ exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
+
+" ── Syntastic ─────────────────────────────────────────────────────────────────
+let g:syntastic_python_checkers = ['pylint']
+let g:syntastic_python_pylint_args = '--max-line-length=120'
+let g:syntastic_always_populate_loc_list = 1
+let g:syntastic_check_on_open = 1
+let g:syntastic_check_on_wq = 0
+
+" ── UltiSnips ─────────────────────────────────────────────────────────────────
+let g:UltiSnipsExpandTrigger       = "<c-s>"
+let g:UltiSnipsJumpForwardTrigger  = "<c-b>"
+let g:UltiSnipsJumpBackwardTrigger = "<c-z>"
+
+" ── YouCompleteMe ─────────────────────────────────────────────────────────────
+let g:ycm_log_level = 'debug'
+let g:ycm_keep_logfiles = 1
