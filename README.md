@@ -5,12 +5,14 @@ Portable PowerShell setup for Windows. Clone once, run the installer — done.
 ## Quick Start
 
 ```powershell
-git clone <repo-url> powershell-dotfiles
+git clone https://github.com/edxleon/dotfiles-windows powershell-dotfiles
 cd powershell-dotfiles
 .\install.ps1
 ```
 
 Restart PowerShell. That's it.
+
+If WSL (Ubuntu) is installed, `setup-wsl.sh` runs automatically inside it.
 
 ## What Gets Installed
 
@@ -30,10 +32,25 @@ Restart PowerShell. That's it.
 
 ## DevOps Mode
 
-Add `-DevOps` to also install kubectl, helm, k9s, Azure CLI and Node.js LTS:
+Add `-DevOps` to also install kubectl, helm, k9s, Azure CLI and Node.js LTS — on both Windows and WSL:
 
 ```powershell
 .\install.ps1 -DevOps
+```
+
+To skip WSL setup:
+
+```powershell
+.\install.ps1 -SkipWsl
+```
+
+## WSL Only
+
+To run the WSL setup standalone (e.g. on a new distro):
+
+```bash
+bash setup-wsl.sh           # shell tools only
+bash setup-wsl.sh --devops  # + kubectl, helm, k9s, Azure CLI
 ```
 
 ## Updating

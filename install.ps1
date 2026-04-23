@@ -6,6 +6,7 @@
 .DESCRIPTION
     Installs Scoop, shell productivity tools, PowerShell modules, and sets up
     the PowerShell profile via symlink so that `git pull` auto-updates config.
+    If WSL is available, also runs setup-wsl.sh inside Ubuntu automatically.
 
 .PARAMETER DevOps
     Also install DevOps tools: kubectl, helm, k9s, Azure CLI, nvm + Node LTS.
@@ -13,14 +14,19 @@
 .PARAMETER Force
     Overwrite an existing $PROFILE symlink without prompting.
 
+.PARAMETER SkipWsl
+    Do not run the WSL setup even if WSL is available.
+
 .EXAMPLE
     .\install.ps1
     .\install.ps1 -DevOps
+    .\install.ps1 -SkipWsl
 #>
 [CmdletBinding()]
 param(
     [switch]$DevOps,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$SkipWsl
 )
 
 Set-StrictMode -Version Latest
@@ -145,6 +151,30 @@ if (Test-Path $profileDest) {
 } else {
     New-Item -ItemType SymbolicLink -Path $profileDest -Target $profileSrc | Out-Null
     Write-Ok "Symlink created: $profileDest -> $profileSrc"
+}
+
+# ── 7. WSL setup ──────────────────────────────────────────────────────────────
+if (-not $SkipWsl) {
+    Write-Step "WSL"
+    $wslAvailable = $false
+    try {
+        $wslDistros = wsl --list --quiet 2>$null
+        $wslAvailable = ($LASTEXITCODE -eq 0) -and ($wslDistros -match '\S')
+    } catch { }
+
+    if ($wslAvailable) {
+        $wslScript = Join-Path $RepoRoot 'setup-wsl.sh'
+        $wslPath   = (wsl wslpath -u ($wslScript -replace '\\', '/') 2>$null).Trim()
+        if (-not $wslPath) {
+            # fallback: convert manually
+            $wslPath = '/mnt/' + ($wslScript -replace '\\', '/' -replace '^([A-Za-z]):', { $args[1].ToLower() })
+        }
+        $wslArgs = if ($DevOps) { @("bash", $wslPath, "--devops") } else { @("bash", $wslPath) }
+        Write-Ok "WSL detected — running setup-wsl.sh"
+        wsl @wslArgs
+    } else {
+        Write-Skip "WSL not available — skipping"
+    }
 }
 
 # ── Done ──────────────────────────────────────────────────────────────────────
