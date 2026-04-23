@@ -274,6 +274,7 @@ else
     skip "vim-plug already installed"
 fi
 ln -sf "$DOTFILES_DIR/configs/vimrc" "$HOME/.vimrc"
+mkdir -p "$HOME/.vim/undo"
 ok "~/.vimrc -> repo"
 vim +PlugInstall +qall &>/dev/null || true
 ok "vim plugins installed"

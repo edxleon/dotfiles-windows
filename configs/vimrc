@@ -1,12 +1,38 @@
-" ── General ──────────────────────────────────────────────────────────────────
+" ── Bootstrap ────────────────────────────────────────────────────────────────
+set nocompatible
+filetype plugin indent on
+
+" ── General ───────────────────────────────────────────────────────────────────
 set history=1000
+set hidden
+set ttyfast
+set updatetime=300
+set encoding=utf-8
+set fileformats=unix,dos,mac
 set number
 set ruler
 set showcmd
+set noshowmode
 set wildmenu
-set encoding=utf-8
+set wildmode=longest:full,full
 set laststatus=2
-syntax enable
+set signcolumn=yes
+set backspace=indent,eol,start
+set splitright
+set splitbelow
+syntax on
+
+" System clipboard (essential in WSL)
+set clipboard=unnamedplus
+
+" Persistent undo across sessions
+set undofile
+set undodir=~/.vim/undo
+
+" No swap files — use git instead
+set noswapfile
+set nobackup
+set nowritebackup
 
 " ── Search ────────────────────────────────────────────────────────────────────
 set hlsearch
@@ -85,7 +111,6 @@ let g:airline#extensions#tabline#enabled = 1
 " ── NERDTree ──────────────────────────────────────────────────────────────────
 nnoremap <leader>n :NERDTreeToggle<CR>
 let NERDTreeShowHidden = 1
-" Close vim if NERDTree is the only window left
 autocmd BufEnter * if tabpagenr('$') == 1 && winnr('$') == 1 &&
     \ exists('b:NERDTree') && b:NERDTree.isTabTree() | quit | endif
 
@@ -102,5 +127,4 @@ let g:UltiSnipsJumpForwardTrigger  = "<c-b>"
 let g:UltiSnipsJumpBackwardTrigger = "<c-z>"
 
 " ── YouCompleteMe ─────────────────────────────────────────────────────────────
-let g:ycm_log_level = 'debug'
-let g:ycm_keep_logfiles = 1
+let g:ycm_log_level = 'warning'
