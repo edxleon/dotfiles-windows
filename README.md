@@ -30,9 +30,9 @@ If WSL (Ubuntu) is installed, `setup-wsl.sh` runs automatically inside it.
 | posh-git | Git status in prompt |
 | CompletionPredictor | Smarter tab completions |
 
-## DevOps Mode
+## Node.js Mode
 
-Add `-DevOps` to also install kubectl, helm, k9s, Azure CLI and Node.js LTS — on both Windows and WSL:
+Add `-DevOps` to also install nvm + Node.js LTS on both Windows and WSL:
 
 ```powershell
 .\install.ps1 -DevOps
@@ -50,7 +50,7 @@ To run the WSL setup standalone (e.g. on a new distro):
 
 ```bash
 bash setup-wsl.sh           # shell tools only
-bash setup-wsl.sh --devops  # + kubectl, helm, k9s, Azure CLI
+bash setup-wsl.sh --devops  # + nvm + Node LTS
 ```
 
 ## Updating
@@ -84,10 +84,5 @@ The profile is a symlink into this repo — `git pull` applies immediately on th
 | `glog` | Pretty git log |
 | `gpull` | `git pull --rebase` |
 | `gpush` | `git push` |
-| `k` | `kubectl` |
-| `kns <ns>` | Switch namespace |
-| `kpods` | All pods across namespaces |
 | `dps` | `docker ps` |
 | `dprune` | Remove all stopped containers/images |
-| `azlogin` | `az login --use-device-code` |
-| `azsub` | List subscriptions |

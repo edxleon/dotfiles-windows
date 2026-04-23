@@ -100,33 +100,6 @@ function gpush { git push @args }
 function gco   { git checkout @args }
 function gcb   { git checkout -b @args }
 
-# ── Kubectl + Helm ────────────────────────────────────────────────────────────
-if (Get-Command kubectl -ErrorAction SilentlyContinue) {
-    # Cache completion to avoid 200-500ms startup penalty on every shell
-    $_kubectlCache = "$env:TEMP\kubectl_completion.ps1"
-    $_kubectlBin   = (Get-Command kubectl).Source
-    if (-not (Test-Path $_kubectlCache) -or (Get-Item $_kubectlBin).LastWriteTime -gt (Get-Item $_kubectlCache).LastWriteTime) {
-        kubectl completion powershell | Out-File $_kubectlCache -Encoding utf8
-    }
-    . $_kubectlCache
-
-    Set-Alias k kubectl
-    function kns($ns)  { kubectl config set-context --current --namespace=$ns }
-    function kctx      { kubectl config get-contexts }
-    function kpods     { kubectl get pods -A }
-    function klogs($p) { kubectl logs -f $p }
-    function kdesc($r) { kubectl describe $r }
-}
-
-if (Get-Command helm -ErrorAction SilentlyContinue) {
-    $_helmCache = "$env:TEMP\helm_completion.ps1"
-    $_helmBin   = (Get-Command helm).Source
-    if (-not (Test-Path $_helmCache) -or (Get-Item $_helmBin).LastWriteTime -gt (Get-Item $_helmCache).LastWriteTime) {
-        helm completion powershell | Out-File $_helmCache -Encoding utf8
-    }
-    . $_helmCache
-}
-
 # ── Docker ────────────────────────────────────────────────────────────────────
 if (Get-Command docker -ErrorAction SilentlyContinue) {
     function dps    { docker ps @args }
@@ -134,14 +107,6 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
     function dlogs  { docker logs -f @args }
     function dprune { docker system prune -af }
     function dimg   { docker images @args }
-}
-
-# ── Azure CLI ─────────────────────────────────────────────────────────────────
-if (Get-Command az -ErrorAction SilentlyContinue) {
-    function azlogin { az login --use-device-code }
-    function azsub   { az account list --output table }
-    function azrg    { az group list --output table }
-    function azset($sub) { az account set --subscription $sub }
 }
 
 # ── Quality-of-life Utilities ─────────────────────────────────────────────────

@@ -9,7 +9,7 @@
     If WSL is available, also runs setup-wsl.sh inside Ubuntu automatically.
 
 .PARAMETER DevOps
-    Also install DevOps tools: kubectl, helm, k9s, Azure CLI, nvm + Node LTS.
+    Also install DevOps tools: nvm + Node LTS.
 
 .PARAMETER Force
     Overwrite an existing $PROFILE symlink without prompting.
@@ -81,18 +81,13 @@ foreach ($tool in $shellTools) {
 
 # ── 3. DevOps tools (optional) ────────────────────────────────────────────────
 if ($DevOps) {
-    Write-Step "DevOps tools (kubectl, helm, k9s, azure-cli, nvm)"
-    $devopsTools = @('kubectl', 'helm', 'k9s', 'azure-cli', 'nvm')
-    foreach ($tool in $devopsTools) {
-        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-            scoop install $tool
-            Write-Ok "$tool installed"
-        } else {
-            Write-Skip "$tool already installed"
-        }
-    }
-
     Write-Step "Node.js LTS via nvm"
+    if (-not (Get-Command nvm -ErrorAction SilentlyContinue)) {
+        scoop install nvm
+        Write-Ok "nvm installed"
+    } else {
+        Write-Skip "nvm already installed"
+    }
     if (Get-Command nvm -ErrorAction SilentlyContinue) {
         nvm install lts
         nvm use lts

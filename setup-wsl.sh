@@ -173,51 +173,7 @@ fi
 
 # ── DevOps tools ──────────────────────────────────────────────────────────────
 if [ "$DEVOPS" = true ]; then
-    step "DevOps tools (kubectl, helm, k9s, Azure CLI)"
-
-    # kubectl
-    if ! command -v kubectl &>/dev/null; then
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key \
-            | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' \
-            | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
-        sudo apt update -qq && sudo apt install -y -qq kubectl
-        ok "kubectl installed"
-    else
-        skip "kubectl already installed"
-    fi
-
-    # helm
-    if ! command -v helm &>/dev/null; then
-        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-        ok "helm installed"
-    else
-        skip "helm already installed"
-    fi
-
-    # k9s
-    if ! command -v k9s &>/dev/null; then
-        K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
-        case "$(uname -m)" in
-            x86_64)  K9S_ARCH="amd64" ;;
-            aarch64) K9S_ARCH="arm64" ;;
-            armv7l)  K9S_ARCH="arm"   ;;
-            *)       K9S_ARCH="amd64" ;;
-        esac
-        curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K9S_ARCH}.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin k9s
-        ok "k9s installed"
-    else
-        skip "k9s already installed"
-    fi
-
-    # Azure CLI
-    if ! command -v az &>/dev/null; then
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-        ok "Azure CLI installed"
-    else
-        skip "Azure CLI already installed"
-    fi
+    step "Node.js LTS via nvm (--devops)"
 fi
 
 # ── .zshrc ────────────────────────────────────────────────────────────────────
@@ -283,20 +239,6 @@ alias gpush='git push'
 alias gco='git checkout'
 alias gcb='git checkout -b'
 
-# ── Kubernetes ────────────────────────────────────────────────────────────────
-if command -v kubectl &>/dev/null; then
-    source <(kubectl completion zsh)
-    alias k='kubectl'
-    alias kctx='kubectl config get-contexts'
-    alias kpods='kubectl get pods -A'
-    kns() { kubectl config set-context --current --namespace=$1; }
-    klogs() { kubectl logs -f $1; }
-fi
-
-if command -v helm &>/dev/null; then
-    source <(helm completion zsh)
-fi
-
 # ── Docker ────────────────────────────────────────────────────────────────────
 if command -v docker &>/dev/null; then
     alias dps='docker ps'
@@ -304,14 +246,6 @@ if command -v docker &>/dev/null; then
     alias dlogs='docker logs -f'
     alias dprune='docker system prune -af'
     alias dimg='docker images'
-fi
-
-# ── Azure CLI ─────────────────────────────────────────────────────────────────
-if command -v az &>/dev/null; then
-    alias azlogin='az login --use-device-code'
-    alias azsub='az account list --output table'
-    alias azrg='az group list --output table'
-    azset() { az account set --subscription "$1"; }
 fi
 
 # ── Editor ────────────────────────────────────────────────────────────────────
