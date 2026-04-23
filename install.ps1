@@ -4,12 +4,9 @@
     Bootstrap PowerShell dotfiles on a new machine.
 
 .DESCRIPTION
-    Installs Scoop, shell productivity tools, PowerShell modules, and sets up
-    the PowerShell profile via symlink so that `git pull` auto-updates config.
+    Installs Scoop, shell productivity tools, PowerShell modules, nvm + Node LTS,
+    and sets up the PowerShell profile via symlink so that `git pull` auto-updates config.
     If WSL is available, also runs setup-wsl.sh inside Ubuntu automatically.
-
-.PARAMETER DevOps
-    Also install DevOps tools: nvm + Node LTS.
 
 .PARAMETER Force
     Overwrite an existing $PROFILE symlink without prompting.
@@ -19,12 +16,10 @@
 
 .EXAMPLE
     .\install.ps1
-    .\install.ps1 -DevOps
     .\install.ps1 -SkipWsl
 #>
 [CmdletBinding()]
 param(
-    [switch]$DevOps,
     [switch]$Force,
     [switch]$SkipWsl
 )
@@ -59,7 +54,7 @@ foreach ($bucket in @('main', 'extras')) {
     }
 }
 
-# ── 2. Shell productivity tools ───────────────────────────────────────────────
+# ── 2. Shell tools ────────────────────────────────────────────────────────────
 Write-Step "Shell tools (oh-my-posh, fzf, zoxide, bat, eza, ripgrep, fd)"
 $shellTools = @(
     'oh-my-posh',
@@ -79,25 +74,23 @@ foreach ($tool in $shellTools) {
     }
 }
 
-# ── 3. DevOps tools (optional) ────────────────────────────────────────────────
-if ($DevOps) {
-    Write-Step "Node.js LTS via nvm"
-    if (-not (Get-Command nvm -ErrorAction SilentlyContinue)) {
-        scoop install nvm
-        Write-Ok "nvm installed"
-    } else {
-        Write-Skip "nvm already installed"
-    }
-    if (Get-Command nvm -ErrorAction SilentlyContinue) {
-        nvm install lts
-        nvm use lts
-        # Refresh PATH so npm is available in the current session
-        $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
-                    [System.Environment]::GetEnvironmentVariable('Path', 'User')
-        if (Get-Command npm -ErrorAction SilentlyContinue) {
-            npm install -g pnpm
-            Write-Ok "Node LTS + pnpm installed"
-        }
+# ── 3. Node.js LTS via nvm ────────────────────────────────────────────────────
+Write-Step "Node.js LTS via nvm"
+if (-not (Get-Command nvm -ErrorAction SilentlyContinue)) {
+    scoop install nvm
+    Write-Ok "nvm installed"
+} else {
+    Write-Skip "nvm already installed"
+}
+if (Get-Command nvm -ErrorAction SilentlyContinue) {
+    nvm install lts
+    nvm use lts
+    # Refresh PATH so npm is available in the current session
+    $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                [System.Environment]::GetEnvironmentVariable('Path', 'User')
+    if (Get-Command npm -ErrorAction SilentlyContinue) {
+        npm install -g pnpm
+        Write-Ok "Node LTS + pnpm installed"
     }
 }
 
@@ -168,9 +161,8 @@ if (-not $SkipWsl) {
             # fallback: manual conversion C:\foo\bar -> /mnt/c/foo/bar
             $wslPath = '/mnt/' + ($wslScript[0].ToString().ToLower()) + ($wslScript.Substring(2) -replace '\\', '/')
         }
-        $wslArgs = if ($DevOps) { @("bash", $wslPath, "--devops") } else { @("bash", $wslPath) }
         Write-Ok "WSL detected — running setup-wsl.sh"
-        wsl @wslArgs
+        wsl bash $wslPath
     } else {
         Write-Skip "WSL not available — skipping"
     }

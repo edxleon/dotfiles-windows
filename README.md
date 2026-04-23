@@ -30,18 +30,11 @@ If WSL (Ubuntu) is installed, `setup-wsl.sh` runs automatically inside it.
 | posh-git | Git status in prompt |
 | CompletionPredictor | Smarter tab completions |
 
-## Node.js Mode
-
-Add `-DevOps` to also install nvm + Node.js LTS on both Windows and WSL:
+## Options
 
 ```powershell
-.\install.ps1 -DevOps
-```
-
-To skip WSL setup:
-
-```powershell
-.\install.ps1 -SkipWsl
+.\install.ps1 -SkipWsl   # skip WSL setup
+.\install.ps1 -Force     # overwrite existing profile symlink
 ```
 
 ## WSL Only
@@ -49,8 +42,7 @@ To skip WSL setup:
 To run the WSL setup standalone (e.g. on a new distro):
 
 ```bash
-bash setup-wsl.sh           # shell tools only
-bash setup-wsl.sh --devops  # + nvm + Node LTS
+bash setup-wsl.sh
 ```
 
 ## Updating

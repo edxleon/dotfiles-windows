@@ -2,9 +2,6 @@
 # WSL Ubuntu setup — mirrors the PowerShell dotfiles environment
 set -euo pipefail
 
-DEVOPS=false
-for arg in "$@"; do [[ "$arg" == "--devops" ]] && DEVOPS=true; done
-
 step() { echo -e "\n\033[36m==> $1\033[0m"; }
 ok()   { echo -e "    \033[32m[OK]\033[0m $1"; }
 skip() { echo -e "    \033[90m[--]\033[0m $1"; }
@@ -169,11 +166,6 @@ if ! command -v node &>/dev/null; then
     ok "Node LTS + pnpm installed"
 else
     skip "Node $(node --version) already installed"
-fi
-
-# ── DevOps tools ──────────────────────────────────────────────────────────────
-if [ "$DEVOPS" = true ]; then
-    step "Node.js LTS via nvm (--devops)"
 fi
 
 # ── .zshrc ────────────────────────────────────────────────────────────────────
