@@ -198,7 +198,13 @@ if [ "$DEVOPS" = true ]; then
     # k9s
     if ! command -v k9s &>/dev/null; then
         K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
-        curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" \
+        case "$(uname -m)" in
+            x86_64)  K9S_ARCH="amd64" ;;
+            aarch64) K9S_ARCH="arm64" ;;
+            armv7l)  K9S_ARCH="arm"   ;;
+            *)       K9S_ARCH="amd64" ;;
+        esac
+        curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K9S_ARCH}.tar.gz" \
             | sudo tar -xz -C /usr/local/bin k9s
         ok "k9s installed"
     else
@@ -229,7 +235,7 @@ cat > "$ZSHRC" << 'ZSHRC_CONTENT'
 
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME=""  # using starship instead
-plugins=(git z fzf)
+plugins=(git fzf)
 source $ZSH/oh-my-zsh.sh
 
 # ── Starship ──────────────────────────────────────────────────────────────────
@@ -317,8 +323,11 @@ ok ".zshrc written"
 # ── Change default shell to zsh ───────────────────────────────────────────────
 step "Default shell"
 if [ "$SHELL" != "$(which zsh)" ]; then
-    chsh -s "$(which zsh)"
-    ok "Default shell changed to zsh"
+    chsh -s "$(which zsh)" || {
+        echo "    [!!] chsh failed — start zsh manually with: exec zsh"
+        echo "         or add 'exec zsh' to ~/.bashrc"
+    }
+    ok "Default shell changed to zsh (restart terminal to apply)"
 else
     skip "zsh already default shell"
 fi

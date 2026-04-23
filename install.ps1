@@ -50,7 +50,7 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 
 Write-Step "Scoop buckets"
 foreach ($bucket in @('main', 'extras')) {
-    $existing = scoop bucket list 2>$null
+    $existing = (scoop bucket list 2>$null | Select-Object -Skip 2 | ForEach-Object { ($_ -split '\s+')[0] })
     if ($existing -notcontains $bucket) {
         scoop bucket add $bucket
         Write-Ok "Bucket '$bucket' added"
@@ -96,6 +96,9 @@ if ($DevOps) {
     if (Get-Command nvm -ErrorAction SilentlyContinue) {
         nvm install lts
         nvm use lts
+        # Refresh PATH so npm is available in the current session
+        $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                    [System.Environment]::GetEnvironmentVariable('Path', 'User')
         if (Get-Command npm -ErrorAction SilentlyContinue) {
             npm install -g pnpm
             Write-Ok "Node LTS + pnpm installed"
@@ -135,7 +138,7 @@ if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileD
 
 if (Test-Path $profileDest) {
     $existing = Get-Item $profileDest
-    if ($existing.LinkType -eq 'SymbolicLink' -and $existing.Target -eq $profileSrc) {
+    if ($existing.LinkType -eq 'SymbolicLink' -and @($existing.Target) -contains $profileSrc) {
         Write-Skip "Symlink already points to repo profile"
     } elseif ($Force) {
         Remove-Item $profileDest -Force
@@ -164,10 +167,11 @@ if (-not $SkipWsl) {
 
     if ($wslAvailable) {
         $wslScript = Join-Path $RepoRoot 'setup-wsl.sh'
-        $wslPath   = (wsl wslpath -u ($wslScript -replace '\\', '/') 2>$null).Trim()
+        # wslpath expects a native Windows path (backslashes + drive letter)
+        $wslPath   = (wsl wslpath -u $wslScript 2>$null).Trim()
         if (-not $wslPath) {
-            # fallback: convert manually
-            $wslPath = '/mnt/' + ($wslScript -replace '\\', '/' -replace '^([A-Za-z]):', { $args[1].ToLower() })
+            # fallback: manual conversion C:\foo\bar -> /mnt/c/foo/bar
+            $wslPath = '/mnt/' + ($wslScript[0].ToString().ToLower()) + ($wslScript.Substring(2) -replace '\\', '/')
         }
         $wslArgs = if ($DevOps) { @("bash", $wslPath, "--devops") } else { @("bash", $wslPath) }
         Write-Ok "WSL detected — running setup-wsl.sh"

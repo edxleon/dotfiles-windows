@@ -2,11 +2,11 @@
 $env:POSH_GIT_ENABLED = $true
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
     $_ompTheme = "$env:USERPROFILE\.config\oh-my-posh\tokyo.omp.json"
-    if (Test-Path $_ompTheme) {
-        oh-my-posh init pwsh --config $_ompTheme | Invoke-Expression
-    } else {
-        oh-my-posh init pwsh --config "$(scoop prefix oh-my-posh)\themes\tokyo.omp.json" | Invoke-Expression
+    if (-not (Test-Path $_ompTheme)) {
+        # Theme not yet installed — fall back to built-in tokyo theme
+        $_ompTheme = 'tokyo'
     }
+    oh-my-posh init pwsh --config $_ompTheme | Invoke-Expression
 }
 
 # ── Modules ───────────────────────────────────────────────────────────────────
@@ -102,7 +102,14 @@ function gcb   { git checkout -b @args }
 
 # ── Kubectl + Helm ────────────────────────────────────────────────────────────
 if (Get-Command kubectl -ErrorAction SilentlyContinue) {
-    kubectl completion powershell | Out-String | Invoke-Expression
+    # Cache completion to avoid 200-500ms startup penalty on every shell
+    $_kubectlCache = "$env:TEMP\kubectl_completion.ps1"
+    $_kubectlBin   = (Get-Command kubectl).Source
+    if (-not (Test-Path $_kubectlCache) -or (Get-Item $_kubectlBin).LastWriteTime -gt (Get-Item $_kubectlCache).LastWriteTime) {
+        kubectl completion powershell | Out-File $_kubectlCache -Encoding utf8
+    }
+    . $_kubectlCache
+
     Set-Alias k kubectl
     function kns($ns)  { kubectl config set-context --current --namespace=$ns }
     function kctx      { kubectl config get-contexts }
@@ -112,7 +119,12 @@ if (Get-Command kubectl -ErrorAction SilentlyContinue) {
 }
 
 if (Get-Command helm -ErrorAction SilentlyContinue) {
-    helm completion powershell | Out-String | Invoke-Expression
+    $_helmCache = "$env:TEMP\helm_completion.ps1"
+    $_helmBin   = (Get-Command helm).Source
+    if (-not (Test-Path $_helmCache) -or (Get-Item $_helmBin).LastWriteTime -gt (Get-Item $_helmCache).LastWriteTime) {
+        helm completion powershell | Out-File $_helmCache -Encoding utf8
+    }
+    . $_helmCache
 }
 
 # ── Docker ────────────────────────────────────────────────────────────────────
