@@ -5,24 +5,29 @@
 
 .DESCRIPTION
     Installs Scoop, shell productivity tools, PowerShell modules, nvm + Node LTS,
-    and sets up the PowerShell profile via symlink so that `git pull` auto-updates config.
-    If WSL is available, also runs setup-wsl.sh inside Ubuntu automatically.
+    and sets up the PowerShell profile so that `git pull` auto-updates config.
+    Works without administrator rights — uses a dot-source wrapper if symlinks
+    are not available.
+    If WSL is detected, you will be asked whether to run setup-wsl.sh as well.
 
 .PARAMETER Force
-    Overwrite an existing $PROFILE symlink without prompting.
-
-.PARAMETER SkipWsl
-    Do not run the WSL setup even if WSL is available.
+    Overwrite an existing $PROFILE entry without prompting.
 
 .EXAMPLE
     .\install.ps1
-    .\install.ps1 -SkipWsl
+    .\install.ps1 -Force
 #>
 [CmdletBinding()]
 param(
-    [switch]$Force,
-    [switch]$SkipWsl
+    [switch]$Force
 )
+
+# ── UTF-8 Encoding (verhindert ? statt ae/oe/ue/ss) ───────────────────────────
+if ($host.Name -eq 'ConsoleHost') {
+    chcp 65001 | Out-Null
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding           = [System.Text.Encoding]::UTF8
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -33,28 +38,41 @@ function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "    [OK] $msg" -ForegroundColor Green }
 function Write-Skip($msg) { Write-Host "    [--] $msg" -ForegroundColor DarkGray }
 
+function New-ProfileLink($src, $dest) {
+    try {
+        New-Item -ItemType SymbolicLink -Path $dest -Target $src -ErrorAction Stop | Out-Null
+        Write-Ok "Symlink erstellt: $dest -> $src"
+    } catch {
+        # Kein Admin / kein Developer Mode: Dot-Source-Wrapper schreiben.
+        # Updates wirken trotzdem automatisch via git pull.
+        Set-Content -Path $dest -Value ". `"$src`"" -Encoding UTF8
+        Write-Ok "Wrapper-Profil erstellt: $dest"
+        Write-Host "    [i] Kein Symlink moeglich (kein Admin/Developer Mode) — dot-source Wrapper verwendet" -ForegroundColor DarkGray
+    }
+}
+
 # ── 1. Scoop ──────────────────────────────────────────────────────────────────
 Write-Step "Scoop"
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
     Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-    Write-Ok "Scoop installed"
+    Write-Ok "Scoop installiert"
 } else {
-    Write-Skip "Scoop already present"
+    Write-Skip "Scoop bereits vorhanden"
 }
 
+# ── 2. Scoop buckets ──────────────────────────────────────────────────────────
 Write-Step "Scoop buckets"
 foreach ($bucket in @('main', 'extras')) {
-    $existing = (scoop bucket list 2>$null | Select-Object -Skip 2 | ForEach-Object { ($_ -split '\s+')[0] })
-    if ($existing -notcontains $bucket) {
-        scoop bucket add $bucket
-        Write-Ok "Bucket '$bucket' added"
+    scoop bucket add $bucket 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Bucket '$bucket' hinzugefuegt"
     } else {
-        Write-Skip "Bucket '$bucket' already added"
+        Write-Skip "Bucket '$bucket' bereits vorhanden"
     }
 }
 
-# ── 2. Shell tools ────────────────────────────────────────────────────────────
+# ── 3. Shell tools ────────────────────────────────────────────────────────────
 Write-Step "Shell tools (oh-my-posh, fzf, zoxide, bat, eza, ripgrep, fd)"
 $shellTools = @(
     'oh-my-posh',
@@ -67,60 +85,65 @@ $shellTools = @(
 )
 foreach ($tool in $shellTools) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-        scoop install $tool
-        Write-Ok "$tool installed"
+        try {
+            scoop install $tool
+            Write-Ok "$tool installiert"
+        } catch {
+            Write-Host "    [!!] $tool konnte nicht installiert werden: $_" -ForegroundColor Yellow
+        }
     } else {
-        Write-Skip "$tool already installed"
+        Write-Skip "$tool bereits vorhanden"
     }
 }
 
-# ── 3. Node.js LTS via nvm ────────────────────────────────────────────────────
+# ── 4. Node.js LTS via nvm ────────────────────────────────────────────────────
 Write-Step "Node.js LTS via nvm"
 if (-not (Get-Command nvm -ErrorAction SilentlyContinue)) {
     scoop install nvm
-    Write-Ok "nvm installed"
+    Write-Ok "nvm installiert"
 } else {
-    Write-Skip "nvm already installed"
+    Write-Skip "nvm bereits vorhanden"
 }
 if (Get-Command nvm -ErrorAction SilentlyContinue) {
     nvm install lts
     nvm use lts
-    # Refresh PATH so npm is available in the current session
-    $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
-                [System.Environment]::GetEnvironmentVariable('Path', 'User')
+    # PATH fuer aktuelle Session aktualisieren (null-sicher)
+    $machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') ?? ''
+    $userPath    = [System.Environment]::GetEnvironmentVariable('Path', 'User')   ?? ''
+    $env:Path    = $machinePath + ';' + $userPath
     if (Get-Command npm -ErrorAction SilentlyContinue) {
         npm install -g pnpm
-        Write-Ok "Node LTS + pnpm installed"
+        Write-Ok "Node LTS + pnpm installiert"
     } else {
-        Write-Host "    [!!] pnpm not installed automatically — run manually:" -ForegroundColor Yellow
+        Write-Host "    [!!] pnpm nicht automatisch installiert — manuell nachholen:" -ForegroundColor Yellow
         Write-Host "         nvm use lts && npm install -g pnpm" -ForegroundColor Yellow
     }
 }
 
-# ── 4. PowerShell modules ─────────────────────────────────────────────────────
-Write-Step "PowerShell modules"
+# ── 5. PowerShell modules ─────────────────────────────────────────────────────
+Write-Step "PowerShell Module"
 $modules = @('PSFzf', 'Terminal-Icons', 'posh-git', 'CompletionPredictor')
 foreach ($mod in $modules) {
     if (-not (Get-Module -ListAvailable $mod)) {
         Install-Module -Name $mod -Scope CurrentUser -Force -AllowClobber
-        Write-Ok "Module '$mod' installed"
+        Write-Ok "Modul '$mod' installiert"
     } else {
-        Write-Skip "Module '$mod' already installed"
+        Write-Skip "Modul '$mod' bereits vorhanden"
     }
 }
 
-# ── 5. Oh-My-Posh theme ───────────────────────────────────────────────────────
-Write-Step "Oh-My-Posh theme"
+# ── 6. Oh-My-Posh theme ───────────────────────────────────────────────────────
+Write-Step "Oh-My-Posh Theme"
 $themeDir  = "$env:USERPROFILE\.config\oh-my-posh"
 $themeDest = "$themeDir\tokyo.omp.json"
 $themeSrc  = Join-Path $RepoRoot 'themes\tokyo.omp.json'
 
 if (-not (Test-Path $themeDir)) { New-Item -ItemType Directory -Path $themeDir -Force | Out-Null }
 Copy-Item -Path $themeSrc -Destination $themeDest -Force
-Write-Ok "Theme copied to $themeDest"
+Write-Ok "Theme kopiert nach $themeDest"
 
-# ── 6. Profile symlink ────────────────────────────────────────────────────────
-Write-Step "PowerShell profile symlink"
+# ── 7. Profile symlink / wrapper ──────────────────────────────────────────────
+Write-Step "PowerShell Profil"
 $profileSrc  = Join-Path $RepoRoot 'Microsoft.PowerShell_profile.ps1'
 $profileDest = $PROFILE
 
@@ -130,48 +153,45 @@ if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileD
 if (Test-Path $profileDest) {
     $existing = Get-Item $profileDest
     if ($existing.LinkType -eq 'SymbolicLink' -and @($existing.Target) -contains $profileSrc) {
-        Write-Skip "Symlink already points to repo profile"
+        Write-Skip "Symlink zeigt bereits auf Repo-Profil"
     } elseif ($Force) {
         Remove-Item $profileDest -Force
-        New-Item -ItemType SymbolicLink -Path $profileDest -Target $profileSrc | Out-Null
-        Write-Ok "Symlink replaced: $profileDest -> $profileSrc"
+        New-ProfileLink $profileSrc $profileDest
     } else {
         $backup = "$profileDest.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         Move-Item $profileDest $backup
-        New-Item -ItemType SymbolicLink -Path $profileDest -Target $profileSrc | Out-Null
-        Write-Ok "Old profile backed up to $backup"
-        Write-Ok "Symlink created: $profileDest -> $profileSrc"
+        Write-Ok "Altes Profil gesichert: $backup"
+        New-ProfileLink $profileSrc $profileDest
     }
 } else {
-    New-Item -ItemType SymbolicLink -Path $profileDest -Target $profileSrc | Out-Null
-    Write-Ok "Symlink created: $profileDest -> $profileSrc"
+    New-ProfileLink $profileSrc $profileDest
 }
 
-# ── 7. WSL setup ──────────────────────────────────────────────────────────────
-if (-not $SkipWsl) {
-    Write-Step "WSL"
-    $wslAvailable = $false
-    try {
-        $wslDistros = wsl --list --quiet 2>$null
-        $wslAvailable = ($LASTEXITCODE -eq 0) -and ($wslDistros -match '\S')
-    } catch { }
+# ── 8. WSL setup (optional) ───────────────────────────────────────────────────
+Write-Step "WSL"
+$wslAvailable = $false
+try {
+    $wslDistros   = wsl --list --quiet 2>$null
+    $wslAvailable = ($LASTEXITCODE -eq 0) -and ($wslDistros -match '\S')
+} catch { }
 
-    if ($wslAvailable) {
+if ($wslAvailable) {
+    $answer = Read-Host "    WSL-Distribution erkannt. WSL-Setup jetzt ausfuehren? [J/n]"
+    if ($answer -eq '' -or $answer -match '^[JjYy]') {
         $wslScript = Join-Path $RepoRoot 'setup-wsl.sh'
-        # wslpath expects a native Windows path (backslashes + drive letter)
         $wslPath   = (wsl wslpath -u $wslScript 2>$null).Trim()
         if (-not $wslPath) {
-            # fallback: manual conversion C:\foo\bar -> /mnt/c/foo/bar
             $wslPath = '/mnt/' + ($wslScript[0].ToString().ToLower()) + ($wslScript.Substring(2) -replace '\\', '/')
         }
-        Write-Ok "WSL detected — running setup-wsl.sh"
         wsl bash $wslPath
     } else {
-        Write-Skip "WSL not available — skipping"
+        Write-Skip "WSL-Setup uebersprungen — manuell: wsl bash setup-wsl.sh"
     }
+} else {
+    Write-Skip "WSL nicht verfuegbar"
 }
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "Done! Restart PowerShell to load the new profile." -ForegroundColor Green
-Write-Host "To update later: git pull  (profile updates automatically via symlink)" -ForegroundColor DarkGray
+Write-Host "Fertig! PowerShell neu starten um das neue Profil zu laden." -ForegroundColor Green
+Write-Host "Spaeter aktualisieren: git pull  (Profil-Aenderungen wirken automatisch)" -ForegroundColor DarkGray

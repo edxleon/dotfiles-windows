@@ -8,27 +8,47 @@ skip() { echo -e "    \033[90m[--]\033[0m $1"; }
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# sudo-Verfuegbarkeit pruefen — alle apt-Operationen sind optional
+HAVE_SUDO=false
+if sudo -n true 2>/dev/null; then
+    HAVE_SUDO=true
+fi
+
+apt_install() {
+    if $HAVE_SUDO; then
+        sudo apt install -y -qq "$@"
+    else
+        echo -e "    \033[33m[!!]\033[0m Kein sudo — ueberspringe: apt install $*"
+        echo -e "         Manuell nachinstallieren: sudo apt install $*"
+        return 0
+    fi
+}
+
 # ── System update ─────────────────────────────────────────────────────────────
 step "System packages"
-sudo apt update -qq && sudo apt upgrade -y -qq
-sudo apt install -y -qq curl wget git unzip build-essential zsh tmux vim python3-dev cmake
+if $HAVE_SUDO; then
+    sudo apt update -qq && sudo apt upgrade -y -qq
+else
+    skip "apt update/upgrade uebersprungen (kein sudo)"
+fi
+apt_install curl wget git unzip build-essential zsh tmux vim python3-dev cmake
 
 # ── Zsh + Oh My Zsh ───────────────────────────────────────────────────────────
 step "Zsh + Oh My Zsh"
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-    ok "Oh My Zsh installed"
+    ok "Oh My Zsh installiert"
 else
-    skip "Oh My Zsh already installed"
+    skip "Oh My Zsh bereits vorhanden"
 fi
 
 # ── Starship prompt ───────────────────────────────────────────────────────────
 step "Starship prompt"
 if ! command -v starship &>/dev/null; then
     curl -sS https://starship.rs/install.sh | sh -s -- --yes
-    ok "Starship installed"
+    ok "Starship installiert"
 else
-    skip "Starship already installed"
+    skip "Starship bereits vorhanden"
 fi
 
 # Starship config — Tokyo Night style to match Oh-My-Posh theme
@@ -88,7 +108,7 @@ time_format = "%H:%M"
 success_symbol = "[ ](bold blue)"
 error_symbol = "[ ](bold red)"
 TOML
-ok "Starship config written"
+ok "Starship config geschrieben"
 
 # ── Productivity tools ────────────────────────────────────────────────────────
 step "Productivity tools (fzf, zoxide, bat, eza, ripgrep, fd)"
@@ -97,87 +117,92 @@ step "Productivity tools (fzf, zoxide, bat, eza, ripgrep, fd)"
 if ! command -v fzf &>/dev/null; then
     git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf" 2>/dev/null
     "$HOME/.fzf/install" --all --no-update-rc
-    ok "fzf installed"
+    ok "fzf installiert"
 else
-    skip "fzf already installed"
+    skip "fzf bereits vorhanden"
 fi
 
 # zoxide
 if ! command -v zoxide &>/dev/null; then
     curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
-    ok "zoxide installed"
+    ok "zoxide installiert"
 else
-    skip "zoxide already installed"
+    skip "zoxide bereits vorhanden"
 fi
 
 # bat (batcat in Ubuntu)
 if ! command -v bat &>/dev/null && ! command -v batcat &>/dev/null; then
-    sudo apt install -y -qq bat
-    ok "bat installed"
+    apt_install bat
+    ok "bat installiert"
 else
-    skip "bat already installed"
+    skip "bat bereits vorhanden"
 fi
 mkdir -p "$HOME/.local/bin"
 if [ -f /usr/bin/batcat ] && [ ! -f "$HOME/.local/bin/bat" ]; then
     ln -sf /usr/bin/batcat "$HOME/.local/bin/bat"
-    ok "bat symlink created"
+    ok "bat symlink erstellt"
 fi
 
 # eza
 if ! command -v eza &>/dev/null; then
-    sudo apt install -y -qq gpg
-    sudo mkdir -p /etc/apt/keyrings
-    wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc \
-        | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" \
-        | sudo tee /etc/apt/sources.list.d/gierens.list > /dev/null
-    sudo apt update -qq && sudo apt install -y -qq eza
-    ok "eza installed"
+    if $HAVE_SUDO; then
+        apt_install gpg
+        sudo mkdir -p /etc/apt/keyrings
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" \
+            | sudo tee /etc/apt/sources.list.d/gierens.list > /dev/null
+        sudo apt update -qq && apt_install eza
+        ok "eza installiert"
+    else
+        echo -e "    \033[33m[!!]\033[0m Kein sudo — eza PPA-Installation uebersprungen"
+        echo -e "         Manuell: sudo apt install gpg && (eza deb.asc Schritte)"
+    fi
 else
-    skip "eza already installed"
+    skip "eza bereits vorhanden"
 fi
 
 # ripgrep + fd
 for pkg in ripgrep fd-find; do
     if ! dpkg -l "$pkg" &>/dev/null; then
-        sudo apt install -y -qq "$pkg"
-        ok "$pkg installed"
+        apt_install "$pkg"
+        ok "$pkg installiert"
     else
-        skip "$pkg already installed"
+        skip "$pkg bereits vorhanden"
     fi
 done
 # fd alias (fd-find ships as fdfind)
 if command -v fdfind &>/dev/null && [ ! -f "$HOME/.local/bin/fd" ]; then
     ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
-    ok "fd symlink created"
+    ok "fd symlink erstellt"
 fi
 
 # ── nvm + Node LTS ────────────────────────────────────────────────────────────
 step "nvm + Node LTS"
 if [ ! -d "$HOME/.nvm" ]; then
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-    ok "nvm installed"
+    ok "nvm installiert"
 else
-    skip "nvm already installed"
+    skip "nvm bereits vorhanden"
 fi
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 if ! command -v node &>/dev/null; then
     nvm install --lts
     npm install -g pnpm
-    ok "Node LTS + pnpm installed"
+    ok "Node LTS + pnpm installiert"
 else
-    skip "Node $(node --version) already installed"
+    skip "Node $(node --version) bereits vorhanden"
 fi
 
 # ── .zshrc ────────────────────────────────────────────────────────────────────
-step ".zshrc configuration"
+step ".zshrc Konfiguration"
 ZSHRC="$HOME/.zshrc"
 
 # Backup existing if not managed by us
 if [ -f "$ZSHRC" ] && ! grep -q "# managed by dotfiles-windows" "$ZSHRC" 2>/dev/null; then
     cp "$ZSHRC" "${ZSHRC}.backup-$(date +%Y%m%d-%H%M%S)"
-    ok ".zshrc backed up"
+    ok ".zshrc gesichert"
 fi
 
 cat > "$ZSHRC" << 'ZSHRC_CONTENT'
@@ -246,22 +271,22 @@ fi
 export EDITOR='code'
 ZSHRC_CONTENT
 
-ok ".zshrc written"
+ok ".zshrc geschrieben"
 
 # ── tmux: tpm + config ────────────────────────────────────────────────────────
 step "tmux (tpm + config)"
 if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
     git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
-    ok "tpm installed"
+    ok "tpm installiert"
 else
-    skip "tpm already installed"
+    skip "tpm bereits vorhanden"
 fi
 ln -sf "$DOTFILES_DIR/configs/tmux.conf" "$HOME/.tmux.conf"
 ok "~/.tmux.conf -> repo"
 # Install plugins headlessly
 if command -v tmux &>/dev/null && [ -f "$HOME/.tmux/plugins/tpm/bin/install_plugins" ]; then
     "$HOME/.tmux/plugins/tpm/bin/install_plugins" &>/dev/null
-    ok "tmux plugins installed"
+    ok "tmux plugins installiert"
 fi
 
 # ── vim: vim-plug + config ────────────────────────────────────────────────────
@@ -269,35 +294,35 @@ step "vim (vim-plug + config)"
 if [ ! -f "$HOME/.vim/autoload/plug.vim" ]; then
     curl -fsSLo "$HOME/.vim/autoload/plug.vim" --create-dirs \
         https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-    ok "vim-plug installed"
+    ok "vim-plug installiert"
 else
-    skip "vim-plug already installed"
+    skip "vim-plug bereits vorhanden"
 fi
 ln -sf "$DOTFILES_DIR/configs/vimrc" "$HOME/.vimrc"
 mkdir -p "$HOME/.vim/undo"
 ok "~/.vimrc -> repo"
 vim +PlugInstall +qall &>/dev/null || true
-ok "vim plugins installed"
+ok "vim plugins installiert"
 
 # YouCompleteMe requires compilation
 YCM_DIR="$HOME/.vim/plugged/YouCompleteMe"
 if [ -d "$YCM_DIR" ] && [ ! -f "$YCM_DIR/third_party/ycmd/ycm_core.so" ]; then
-    python3 "$YCM_DIR/install.py" &>/dev/null && ok "YouCompleteMe compiled" \
-        || echo "    [!!] YCM build failed — run manually: python3 ~/.vim/plugged/YouCompleteMe/install.py"
+    python3 "$YCM_DIR/install.py" &>/dev/null && ok "YouCompleteMe kompiliert" \
+        || echo "    [!!] YCM build fehlgeschlagen — manuell: python3 ~/.vim/plugged/YouCompleteMe/install.py"
 fi
 
 # ── Change default shell to zsh ───────────────────────────────────────────────
-step "Default shell"
+step "Standard-Shell"
 if [ "$SHELL" != "$(which zsh)" ]; then
     chsh -s "$(which zsh)" || {
-        echo "    [!!] chsh failed — start zsh manually with: exec zsh"
-        echo "         or add 'exec zsh' to ~/.bashrc"
+        echo "    [!!] chsh fehlgeschlagen — zsh manuell starten: exec zsh"
+        echo "         oder 'exec zsh' in ~/.bashrc eintragen"
     }
-    ok "Default shell changed to zsh (restart terminal to apply)"
+    ok "Standard-Shell auf zsh gesetzt (Terminal neu starten)"
 else
-    skip "zsh already default shell"
+    skip "zsh bereits Standard-Shell"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-echo -e "\n\033[32mDone! Start a new shell or run: exec zsh\033[0m"
-echo -e "\033[90mTo update later: git pull && bash setup-wsl.sh\033[0m"
+echo -e "\n\033[32mFertig! Neue Shell starten oder: exec zsh\033[0m"
+echo -e "\033[90mSpaeter aktualisieren: git pull && bash setup-wsl.sh\033[0m"
